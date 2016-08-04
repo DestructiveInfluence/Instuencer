@@ -3,7 +3,7 @@
 
 __author__  = 'QD'
 __copyright__   = 'Copyright (C) 2016 QD'
-__version__     = '0.1'
+__version__     = '0.2'
 __email__   = 'QD@dstrctv.io'
 __github__  = 'http://github.com/DestructiveInfluence/Instuencer'
 __python__    = '2.7'
@@ -17,10 +17,11 @@ import logging
 import json
 import itertools
 
-
-loginPassword = 'qwertz12345' # password for your accounts
-loginUser = ["username1","username2","username3"]
-url_destro = 'https://www.instagram.com/%s/' # replace %s with your username
+# Fill in these 4 lines below!
+username = 'your_username' # what profile do you want to boost?
+overwatchUser = 'username0' # bot constantly scanning your feed
+loginUser = ['username1','username2','username3'] # bot interacting with your account
+loginPassword = 'password123' # password for all of the bots
 
 url = 'https://www.instagram.com/'
 url_likes = 'https://www.instagram.com/web/likes/%s/like/'
@@ -50,11 +51,14 @@ now_time = datetime.datetime.now()
 time_in_day = 24*60*60
 
 media_id = ''
+like_counter = 0
+
 s = requests.Session()
+sOverwatch = requests.Session()
 
 def login(user_login):
-    global s
     global login_status
+    s = requests.Session()
     log_string = 'Logging in as %s...' % (user_login)
     write_log(log_string)
     s.cookies.update ({'sessionid' : '', 'mid' : '', 'ig_pr' : '1',
@@ -88,6 +92,7 @@ def login(user_login):
             login_status = True
             log_string = '%s login success!' % (user_login)
             write_log(log_string)
+            return s
         else:
             login_status = False
             write_log('Login error! Check your login data!')
@@ -104,7 +109,6 @@ def logout():
         login_status = False
     except:
         write_log("Logout error!")
-    #Logout
     if (login_status):
         logout()
 #    exit(0)
@@ -112,11 +116,14 @@ def logout():
 def like(media_id):
     global s
     global login_status
+    global like_counter
+
     if (login_status):
         nowurl_likes = url_likes % (media_id)
         try:
             like = s.post(nowurl_likes)
             write_log("Liking media: " + media_id)
+            like_counter += 1
         except:
             write_log("Except on like!")
             like = 0
@@ -223,7 +230,7 @@ def write_log(log_text):
 # gets last media_ID from profile
 def getmedia_id():
     try:
-        r = s.get(url_destro)
+        r = sOverwatch.get(url + username)
         text = r.text
         finder_text_start = ('<script type="text/javascript">'
                              'window._sharedData = ')
@@ -235,35 +242,56 @@ def getmedia_id():
                        : all_data_end]
         all_data = json.loads(json_str)
         #media_ids = list(all_data['entry_data']['ProfilePage'][0]['user']['media']['nodes'])
-        media_id = all_data['entry_data']['ProfilePage'][0]['user']['media']['nodes'][0]['id'] #get media_id
-        media_id = media_id + "_" + all_data['entry_data']['ProfilePage'][0]['user']['media']['nodes'][0]['owner']['id'] #get owner_id
-        return media_id
+        new_media_id = all_data['entry_data']['ProfilePage'][0]['user']['media']['nodes'][0]['id'] #get media_id
+        new_media_id = new_media_id + "_" + all_data['entry_data']['ProfilePage'][0]['user']['media']['nodes'][0]['owner']['id'] #get owner_id
+        return new_media_id
     except:
-                media_id = []
+                new_media_id = []
                 write_log("Except on get_media!")
                 time.sleep(60)
     else:
         return media_id
 
 # handles liking of last image
-def likeHandler():
+def like_handler():
     global s
-    global login_status
     global media_id
 
-    for element in loginUser:
-        username = element
-        j = login(username)
-        time.sleep(7)
-        if(media_id == ""):
+    write_log("[/] Scanning for new media now...")
+    # overwatch account constantly scanning your feed, while never interacting with it
+    while(True):
+        if(media_id <> getmedia_id()):
+            time.sleep(40 + (5 * random.random()))
             media_id = getmedia_id()
-        time.sleep(10)
-        like(media_id)
-        time.sleep(13)
-        logout()
-        time.sleep(30)
+            write_log("New media posted, ID: " + media_id)
+            time.sleep(20 + (5 * random.random()))
+            # one cycle = approx 2min (90s + random + login)
+            for element in loginUser:
+                user_login = element
+                s = login(user_login)
+                time.sleep(27 + (5 * random.random()))
+                like(media_id)
+                #time.sleep(10 + (5* random.random())) # uncomment for random comments lol
+                #comment(media_id, generate_comment()) # this line too, you fool!
+                time.sleep(33 + (5 * random.random()))
+                logout()
+                write_log("–––––––––––––––––––––––––")
+                time.sleep(30 + (5 * random.random()))
+            write_log('[/] Cycle completed. Now lurking for new media. Extra Likes: ' + str(like_counter))
+        time.sleep(300 + (5 * random.random())) # 5 minute sleep timer, before checking for new media
 
-log_string = '[/] Instuencer v0.1 by QD started at %s:' %\
+# Entry point
+def main():
+    global sOverwatch
+    global login_status
+    sOverwatch = login(overwatchUser)
+    login_status = False
+    like_handler()
+
+## -- start of init call --
+log_string = '[/\] Instuencer ' + __version__ + ' by QD started at %s:' %\
          (now_time.strftime("%d.%m.%Y %H:%M"))
 write_log(log_string)
-likeHandler()
+log_string = '[/\] Users: ' + str(len(loginUser)) + ' for account: ' + username
+write_log(log_string)
+main()
